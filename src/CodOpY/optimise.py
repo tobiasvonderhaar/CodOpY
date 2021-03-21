@@ -57,3 +57,45 @@ def retrieve_kazusa(taxID):
     return results_frame.sort_values(by='codon').reset_index(drop=True)
 
 #==================================================================================================
+
+def opt_seq(seq,diversify=[],diversify_range=0.2,ref_table = 'Scer',optimise_by=['decoding.time',min]):
+
+    import pandas as pd
+    import random
+
+
+
+    #determine which ref_table to use. If this is the default string 'Scer',
+    #load this from the package Data
+    if ref_table == 'Scer':
+        #prepare package data for use
+        try:
+            import importlib.resources as pkg_resources
+        except ImportError:
+            # Try backported to PY<37 `importlib_resources`.
+            import importlib_resources as pkg_resources
+        from . import Data  # relative-import the *package* containing the data
+        #import the stored data for S cerevisiae
+        with pkg_resources.open_text(Data, 'Scer.csv') as read_file:
+            parameterset = pd.read_csv(read_file)
+
+    #define the reverse translation dictionary: which codons should be considered for which amino acid?
+    #if an amino acid is not in the diversify list, use the fastest codon
+    #if an amino acid is in the diversify list, diversify codon choice by random draw from all codons for which the diversify_range threshold applies
+    reverse_dict = {}
+    diversify_threshold = optimise_by[1]([max(codons[optimise_by[0]]*diversify_range),max(codons[optimise_by[0]]*(1- diversify_range))])
+    for aa in codons['one.letter'].unique():
+        codons_for_aa = codons.loc[codons['one.letter']==aa]
+        if aa in diversify:
+            acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']<diversify_threshold]['codon'])
+        else:
+            min_decoding_time_for_aa = min(codons_for_aa['decoding.time'])
+            acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']==min_decoding_time_for_aa]['codon'])
+        reverse_dict[aa] = acceptable_codons_for_aa
+    codon_seq = []
+    for seq_aa in seq:
+        codon_seq.append(random.choice(reverse_dict[seq_aa]))
+    return ''.join(codon_seq).replace('U','T')
+
+
+#==================================================================================================

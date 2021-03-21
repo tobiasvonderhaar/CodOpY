@@ -6,9 +6,9 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name = 'CodOpY',
     version = '0.0.1',
-    author = 'Tobias von der Haar'
-    author_email = 'T.von-der-Haar@kent.ac.uk'
-    url="https://github.com/tobiasvonderhaar",
+    author = 'Tobias von der Haar',
+    author_email = 'T.von-der-Haar@kent.ac.uk',
+    url="https://github.com/tobiasvonderhaar/CodOpY",
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
@@ -18,11 +18,11 @@ setup(
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Bio-Informatics"
     ],
-
+    package_data={'Data':['Data/*']},
     description= 'Python Codon Optimisation tools',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    py_modules = ['CodOpY.optimise','CodOpY.misc'],
+    py_modules = ['CodOpY.optimise','CodOpY.misc','CodOpY.plot'],
     package_dir = {'' : 'src'},
-    python_requires = ">=3.6"
+    python_requires = ">=3.6",
 )
