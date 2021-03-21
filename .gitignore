@@ -1,0 +1,17 @@
+#sdist build files
+__pycache__/
+*.egg-info
+*.egg
+build
+dist
+
+#garbage from development 
+.ipynb_checkpoints
+Untitled.ipynb
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# pyenv
+.python-version
