@@ -1,8 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
-
+print(find_packages())
 setup(
     name = 'CodOpY',
     version = '0.0.1',
@@ -18,11 +19,14 @@ setup(
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Bio-Informatics"
     ],
-    package_data={'Data':['Data/*']},
     description= 'Python Codon Optimisation tools',
     long_description=long_description,
     long_description_content_type="text/markdown",
     py_modules = ['CodOpY.optimise','CodOpY.misc','CodOpY.plot'],
+    zip_safe=False,
     package_dir = {'' : 'src'},
+    packages=['CodOpY'],
+    include_package_data=True,
+    package_data={'':['src/CodOpY/Data/*.csv']},
     python_requires = ">=3.6",
 )

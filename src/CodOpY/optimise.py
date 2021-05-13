@@ -58,7 +58,7 @@ def retrieve_kazusa(taxID):
 
 #==================================================================================================
 
-def opt_seq(seq,diversify=[],diversify_range=0.2,ref_table = 'Scer',optimise_by=['decoding.time',min]):
+def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],diversify_range=0.2,ref_table = 'Scer',optimise_by=['decoding.time',min]):
 
     import pandas as pd
     import random
@@ -76,21 +76,27 @@ def opt_seq(seq,diversify=[],diversify_range=0.2,ref_table = 'Scer',optimise_by=
             import importlib_resources as pkg_resources
         from . import Data  # relative-import the *package* containing the data
         #import the stored data for S cerevisiae
-        with pkg_resources.open_text(Data, 'Scer.csv') as read_file:
+        with open(Data.__path__[0] + '/' + ref_table + '.csv') as read_file:
             parameterset = pd.read_csv(read_file)
 
     #define the reverse translation dictionary: which codons should be considered for which amino acid?
     #if an amino acid is not in the diversify list, use the fastest codon
     #if an amino acid is in the diversify list, diversify codon choice by random draw from all codons for which the diversify_range threshold applies
     reverse_dict = {}
-    diversify_threshold = optimise_by[1]([max(codons[optimise_by[0]]*diversify_range),max(codons[optimise_by[0]]*(1- diversify_range))])
-    for aa in codons['one.letter'].unique():
-        codons_for_aa = codons.loc[codons['one.letter']==aa]
+    for aa in parameterset['one.letter'].unique():
+        codons_for_aa = parameterset.loc[parameterset['one.letter']==aa]
         if aa in diversify:
-            acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']<diversify_threshold]['codon'])
+            if optimise_by[1] == min:
+                diversify_threshold = min(codons_for_aa[optimise_by[0]]) * (1 + diversify_range)
+                acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']<diversify_threshold]['codon'])
+            elif optimise_by[1] == max:
+                diversify_threshold = max(codons_for_aa[optimise_by[0]]) * (1 - diversify_range)
+                acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']>diversify_threshold]['codon'])
+            else:
+                return
         else:
-            min_decoding_time_for_aa = min(codons_for_aa['decoding.time'])
-            acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']==min_decoding_time_for_aa]['codon'])
+            best_decoding_time_for_aa = optimise_by[1](codons_for_aa['decoding.time'])
+            acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']==best_decoding_time_for_aa]['codon'])
         reverse_dict[aa] = acceptable_codons_for_aa
     codon_seq = []
     for seq_aa in seq:
@@ -99,3 +105,133 @@ def opt_seq(seq,diversify=[],diversify_range=0.2,ref_table = 'Scer',optimise_by=
 
 
 #==================================================================================================
+
+def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',min],suppress_not_found=False):
+    
+    '''Removes restriction enzyme sites from DNA sequences without altering the encoded 
+    amino acid sequence and while maintaining codon optimisation as much as possible.'''
+    
+    import pandas as pd
+
+    #prepare package data for use
+    try:
+        import importlib.resources as pkg_resources
+    except ImportError:
+        # Try backported to PY<37 `importlib_resources`.
+        import importlib_resources as pkg_resources
+    from . import Data  # relative-import the *package* containing the data
+    #import the stored data for S cerevisiae
+    with open(Data.__path__[0] + '/RE_List.csv') as read_file:
+        RE_ref = pd.read_csv(read_file)
+    RE_ref.Name = RE_ref.Name.str.upper()
+    with open(Data.__path__[0] + '/' + ref_table + '.csv') as read_file:
+        codons = pd.read_csv(read_file)
+    
+     #Scer = pd.read_csv('src/CodOpY/Data/' + ref_table + '.csv')
+    
+    #is site a restrictions enzyme name?
+    site = site.upper()
+    if site in RE_ref.Name.values:
+        RE_seq = RE_ref.loc[RE_ref['Name'] == site]['Motif'].values[0]
+    #is site a valid DNA sequence?
+    elif not 0 in [c in ['A','C','T','G','W','S','M','K','R','Y','N'] for c in site]:
+        RE_seq = site
+    else:
+        print('No known Restriction enzyme site or valid DNA sequence specified.')
+        return
+    #remove leading or trailing Ns from RE site
+    while RE_seq[0] == 'N':
+        RE_seq = RE_site[1:]
+    while RE_seq[-1] == 'N':
+        RE_seq = RE_site[:-1]
+    #does RE_site now have more than 5 'N' (this becomes very inefficient)
+    if RE_seq.count('N') > 5:
+        print('Too many N - the maximum number of N allowed in the RE sequence is 5')
+        return
+    
+    #does the RE site contain ambiguous nucleotide symbols? 
+    #If so list all corresponding unambiguous sequences
+    ambiguous_bases = {'W':['A','T'],'S':['G','C'],'M':['A','C'],'K':['G','T'],'R':['A','G'],'Y':['C','T'],
+                       'B':['C','G','T'],'D':['A','G','T'],'H':['A','C','T'],'V':['A','C','G'],'N':['A','C','G','T']}
+    unamb_RE_seqs = [RE_seq]
+    while 0 in [c in ['A','C','T','G'] for c in unamb_RE_seqs[0]]:
+        new_options = []
+        for seq in unamb_RE_seqs:
+            for idx, nt in enumerate(seq):
+                if nt in ambiguous_bases.keys():
+                    for nt in ambiguous_bases[nt]:
+                        new_options.append(seq[:idx] + nt + seq[idx+1:])
+                    break
+        unamb_RE_seqs = new_options
+    
+        
+    #convert sequence to valid uppercase DNA sequence
+    test_seq = test_seq.upper().replace('U','T')        
+    
+    #is site in seq?
+    if not 1 in [R in test_seq for R in unamb_RE_seqs]:
+        if not suppress_not_found:
+            print(site + ' not found in this sequence')
+        return
+    new_seq = test_seq
+    
+    #prepare auxiliary data structures
+    codon_pos = list(range(0,len(test_seq)-2,3))
+    codons['codon'] = codons['codon'].str.replace('U','T')
+    code_lookup = pd.Series(codons['one.letter'].values,index=codons.codon).to_dict()
+    speed_lookup = pd.Series(codons[optimise_by[0]].values,index=codons.codon).to_dict()
+    reverse_code_lookup = {}
+    for aa in codons['one.letter'].unique():
+        this_subset = codons.loc[codons['one.letter'] == aa]
+        reverse_code_lookup[aa] = list(this_subset['codon'])
+    
+    #go through each RE site and replace one codon to remove it
+    while 1 in [R in new_seq for R in unamb_RE_seqs]:
+        #determine the starting nt of the first instance of the RE_site
+        for this_RE_seq in unamb_RE_seqs:
+            try:
+                found_RE_index = new_seq.index(this_RE_seq)
+                break
+            except:
+                pass
+        #isolate the sequence of codons that contains the site
+        subseq_start = max([x for x in codon_pos if found_RE_index >= x])
+        if (found_RE_index + len(unamb_RE_seqs[0])) > len(new_seq)-2:
+            subseq_stop = len(new_seq)
+        else:
+            subseq_stop = min([x for x in codon_pos if (found_RE_index + len(unamb_RE_seqs[0]) <= x)])
+        subseq_contains_site= new_seq[subseq_start:subseq_stop]
+        subseq_codons = [subseq_contains_site[n:n+3] for n in range(0,len(subseq_contains_site),3)]
+        
+        seq_vec,times_vec = [],[]
+        for idx,sub_codon in enumerate(subseq_codons):
+            this_aa = code_lookup[sub_codon]
+            for alternative in reverse_code_lookup[this_aa]:
+                if alternative != sub_codon:
+                    new_subseq_codons = subseq_codons[:idx] + [alternative] + subseq_codons[idx+1:]
+                    new_subseq = ''.join(new_subseq_codons)
+                    if not 1 in [R in new_subseq for R in unamb_RE_seqs]:
+                        seq_vec.append(new_subseq)
+                        time = 0
+                        for codon in new_subseq_codons:
+                            time += speed_lookup[codon]
+                        times_vec.append(time)
+        best_option_index = times_vec.index(optimise_by[1](times_vec))
+        new_subseq = seq_vec[best_option_index]
+        new_seq = new_seq[:subseq_start] + new_subseq + new_seq[subseq_stop:]
+                
+    return new_seq      
+#================================================================================
+
+def test_RE(REs, test_seq):
+    if type(REs) != list:
+        REs = [REs]
+    
+    found_REs = []
+    for RE in REs:
+        test = remove_RE(RE, test_seq, suppress_not_found=True)
+    if type(test) != str:
+        pass
+    else:
+        found_REs.append(RE)
+    return found_REs
