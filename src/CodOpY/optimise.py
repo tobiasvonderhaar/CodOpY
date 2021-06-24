@@ -63,21 +63,19 @@ def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],diversify_ra
     import pandas as pd
     import random
 
-
-
-    #determine which ref_table to use. If this is the default string 'Scer',
-    #load this from the package Data
-    if ref_table == 'Scer':
-        #prepare package data for use
-        try:
-            import importlib.resources as pkg_resources
-        except ImportError:
-            # Try backported to PY<37 `importlib_resources`.
-            import importlib_resources as pkg_resources
-        from . import Data  # relative-import the *package* containing the data
-        #import the stored data for S cerevisiae
+    #prepare package data for use
+    try:
+        import importlib.resources as pkg_resources
+    except ImportError:
+        # Try backported to PY<37 `importlib_resources`.
+        import importlib_resources as pkg_resources
+    from . import Data  # relative-import the *package* containing the data
+    #import the stored data for the dataset in question
+    try:
         with open(Data.__path__[0] + '/' + ref_table + '.csv') as read_file:
             parameterset = pd.read_csv(read_file)
+    except:
+        raise ValueError('ref_table does not refer to a valid dataset.')
 
     #define the reverse translation dictionary: which codons should be considered for which amino acid?
     #if an amino acid is not in the diversify list, use the fastest codon
@@ -107,10 +105,10 @@ def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],diversify_ra
 #==================================================================================================
 
 def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',min],suppress_not_found=False):
-    
-    '''Removes restriction enzyme sites from DNA sequences without altering the encoded 
+
+    '''Removes restriction enzyme sites from DNA sequences without altering the encoded
     amino acid sequence and while maintaining codon optimisation as much as possible.'''
-    
+
     import pandas as pd
 
     #prepare package data for use
@@ -126,9 +124,9 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
     RE_ref.Name = RE_ref.Name.str.upper()
     with open(Data.__path__[0] + '/' + ref_table + '.csv') as read_file:
         codons = pd.read_csv(read_file)
-    
+
      #Scer = pd.read_csv('src/CodOpY/Data/' + ref_table + '.csv')
-    
+
     #is site a restrictions enzyme name?
     site = site.upper()
     if site in RE_ref.Name.values:
@@ -148,8 +146,8 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
     if RE_seq.count('N') > 5:
         print('Too many N - the maximum number of N allowed in the RE sequence is 5')
         return
-    
-    #does the RE site contain ambiguous nucleotide symbols? 
+
+    #does the RE site contain ambiguous nucleotide symbols?
     #If so list all corresponding unambiguous sequences
     ambiguous_bases = {'W':['A','T'],'S':['G','C'],'M':['A','C'],'K':['G','T'],'R':['A','G'],'Y':['C','T'],
                        'B':['C','G','T'],'D':['A','G','T'],'H':['A','C','T'],'V':['A','C','G'],'N':['A','C','G','T']}
@@ -163,18 +161,18 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
                         new_options.append(seq[:idx] + nt + seq[idx+1:])
                     break
         unamb_RE_seqs = new_options
-    
-        
+
+
     #convert sequence to valid uppercase DNA sequence
-    test_seq = test_seq.upper().replace('U','T')        
-    
+    test_seq = test_seq.upper().replace('U','T')
+
     #is site in seq?
     if not 1 in [R in test_seq for R in unamb_RE_seqs]:
         if not suppress_not_found:
             print(site + ' not found in this sequence')
         return
     new_seq = test_seq
-    
+
     #prepare auxiliary data structures
     codon_pos = list(range(0,len(test_seq)-2,3))
     codons['codon'] = codons['codon'].str.replace('U','T')
@@ -184,7 +182,7 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
     for aa in codons['one.letter'].unique():
         this_subset = codons.loc[codons['one.letter'] == aa]
         reverse_code_lookup[aa] = list(this_subset['codon'])
-    
+
     #go through each RE site and replace one codon to remove it
     while 1 in [R in new_seq for R in unamb_RE_seqs]:
         #determine the starting nt of the first instance of the RE_site
@@ -202,7 +200,7 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
             subseq_stop = min([x for x in codon_pos if (found_RE_index + len(unamb_RE_seqs[0]) <= x)])
         subseq_contains_site= new_seq[subseq_start:subseq_stop]
         subseq_codons = [subseq_contains_site[n:n+3] for n in range(0,len(subseq_contains_site),3)]
-        
+
         seq_vec,times_vec = [],[]
         for idx,sub_codon in enumerate(subseq_codons):
             this_aa = code_lookup[sub_codon]
@@ -219,19 +217,90 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
         best_option_index = times_vec.index(optimise_by[1](times_vec))
         new_subseq = seq_vec[best_option_index]
         new_seq = new_seq[:subseq_start] + new_subseq + new_seq[subseq_stop:]
-                
-    return new_seq      
+
+    return new_seq
 #================================================================================
 
 def test_RE(REs, test_seq):
     if type(REs) != list:
         REs = [REs]
-    
+
     found_REs = []
     for RE in REs:
         test = remove_RE(RE, test_seq, suppress_not_found=True)
-    if type(test) != str:
+        if type(test) != str:
+            pass
+        else:
+            found_REs.append(RE)
+    return found_REs
+
+#================================================================================
+
+def translate(seq):
+
+    codedict = {'AAA':'K','AAC':'N','AAG':'K','AAT':'N','ACA':'T','ACC':'T','ACG':'T','ACT':'T','AGA':'R','AGC':'S','AGG':'R','AGT':'S',
+               'ATA':'I','ATC':'I','ATG':'M','ATT':'I','CAA':'Q','CAC':'H','CAG':'Q','CAT':'H','CCA':'P','CCC':'P','CCG':'P','CCT':'P',
+               'CGA':'R','CGC':'R','CGG':'R','CGT':'R','CTA':'L','CTC':'L','CTG':'L','CTT':'L','GAA':'E','GAC':'D','GAG':'E','GAT':'D',
+               'GCA':'A','GCC':'A','GCG':'A','GCT':'A','GGA':'G','GGC':'G','GGG':'G','GGT':'G','GTA':'V','GTC':'V','GTG':'V','GTT':'V',
+               'TAA':'*','TAC':'Y','TAG':'*','TAT':'Y','TCA':'S','TCC':'S','TCG':'S','TCT':'S','TGA':'*','TGC':'C','TGG':'W','TGT':'C',
+               'TTA':'L','TTC':'F','TTG':'L','TTT':'F'}
+
+    if type(seq) == str and all([n in ['A','C','T','G'] for n in seq.upper()]):
+        seq = [seq[i:i+3] for i in range(0,len(seq),3) if len(seq[i:i+3]) == 3]
+    elif type(seq) == list and all([len(c) == 3 for c in seq]):
         pass
     else:
-        found_REs.append(RE)
-    return found_REs
+        raise ValueError('This sequence is not recognised as a valid DNA or codon sequence.')
+
+    return ''.join([codedict[c] for c in seq])
+
+#================================================================================
+
+def time_seq(input_seq,ref_table='Scer'):
+    '''time_seq calculates the time it takes to decode a DNA or RNA sequence.
+
+    Parameters
+    ----------
+    input_seq : str
+        The DNA or RNA sequence for which the tiem properties are beiing returned.
+    ref_table : str
+        The name of the reference table to be used, eg 'Scer' for S. cerevisiae
+
+    Returns
+    -------
+    dict
+        A dictionary containing the overall Decoding time in seconds,
+        the Average decoding time per codon in seconds, and the CV
+        (coefficient of variation of the decoding time per codon)
+    '''
+
+    import numpy as np
+    import pandas as pd
+
+    #convert the input sequence to DNA if RNA
+    input_seq = input_seq.replace('U','T')
+    #make a look-up dictionary of the decoding times available for an amino acid
+    #from the reference table
+    try:
+        import importlib.resources as pkg_resources
+    except ImportError:
+        # Try backported to PY<37 `importlib_resources`.
+        import importlib_resources as pkg_resources
+    from . import Data  # relative-import the *package* containing the data
+    #import the stored data for S cerevisiae
+    with open(Data.__path__[0] + '\\' +  ref_table + '.csv') as read_file:
+        ref = pd.read_csv(read_file)
+    ref['codon'] = ref['codon'].str.replace('U','T')
+    time_dict_by_codon = dict(zip(ref['codon'], ref['decoding.time']))
+    #add pseudo data for stop codons
+    time_dict_by_codon['TGA'] = 0
+    time_dict_by_codon['TAA'] = 0
+    time_dict_by_codon['TAG'] = 0
+    #calculate the decoding time properties of the sequence
+    codon_seq = [input_seq[n:n+3] for n in range(0,len(input_seq),3)]
+    times_vec = [time_dict_by_codon[codon] for codon in codon_seq]
+    results = {}
+    results['Decoding time'] = np.sum(times_vec)
+    results['Average decoding time per codon'] = results['Decoding time'] / len(codon_seq)
+    results['CV'] = np.std(times_vec, ddof=1) / np.mean(times_vec) * 100
+    return results

@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 print(find_packages())
 setup(
     name = 'CodOpY',
-    version = '0.0.1',
+    version = '0.0.1.t',
     author = 'Tobias von der Haar',
     author_email = 'T.von-der-Haar@kent.ac.uk',
     url="https://github.com/tobiasvonderhaar/CodOpY",
