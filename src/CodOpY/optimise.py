@@ -1,5 +1,20 @@
 def retrieve_kazusa(taxID):
-    '''Returns a table with codon usage frequencies (per 1000 nt) from the Kazusa website'''
+    '''Returns a table with codon usage frequencies per 1000 nt from the
+    Kazusa website.
+
+    Parameters
+    ==========
+    taxID : int or str
+        taxID can be the NCBI Taxonomy ID of an organism or the latin name (or
+        part thereof) of an organism.
+
+    Returns
+    =======
+    pandas.core.frame.DataFrame
+        A dataframe containing codons, amino acid abbreviations and the
+        relative usage frequency per 1000 codons for each of the 64 possible
+        RNA codons.
+    '''
 
     from CodOpY.misc import initiate_code_table
     import requests
@@ -58,7 +73,39 @@ def retrieve_kazusa(taxID):
 
 #==================================================================================================
 
-def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],diversify_range=0.2,ref_table = 'Scer',optimise_by=['decoding.time',min]):
+def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],
+            diversify_range=0.2,ref_table = 'Scer',
+            optimise_by=['decoding.time',min]):
+
+    '''
+    Makes an optimised DNA sequence corresponding to an input amino acid sequence.
+
+    Parameters
+    ==========
+    seq : str
+        The amino aid sequence to be otimised
+
+    diversify : list of str
+        A list specifying individual amino acids for which codons should be
+        diversified.
+
+    diversify_range : float
+        The proportion over which the optimisation parameters that is allowed to
+        vary for diversified amno acids, relative to 1.
+
+    ref_table : str
+        the name of the data file containing the codon data.
+
+    optimise_by : list of str and function
+        The str part of optimise_by specifies which cloumn of the ref_tble shold be
+        used for optimisation. Function can be min or max and specifies whether the
+        highestt or lowest value should be selected for optimisation.
+
+    Returns
+    =======
+    str
+        Returns a DNA sequence string.
+    '''
 
     import pandas as pd
     import random
@@ -107,7 +154,30 @@ def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],diversify_ra
 def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',min],suppress_not_found=False):
 
     '''Removes restriction enzyme sites from DNA sequences without altering the encoded
-    amino acid sequence and while maintaining codon optimisation as much as possible.'''
+    amino acid sequence and while maintaining codon optimisation as much as possible.
+
+    Parameters
+    ==========
+    site : str
+        the name of the restriction enzyme for which sites should be removed.
+
+    test_seq : str
+        the sequence from which sites are to be removed.
+
+    ref_table : str
+        the name of the reference table from which the optimisation information
+        is being used.
+
+    optimise_by : list of str and Function
+        As for opt_seq, the name of the column of ref_table from which
+        optimisation info is generated, and whether optimal is the minimum or
+        maximum.
+
+    Returns
+    =======
+    str
+        A DNA sequence string.
+    '''
 
     import pandas as pd
 
@@ -222,6 +292,23 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
 #================================================================================
 
 def test_RE(REs, test_seq):
+    '''
+    Tests whether REs are present in a sequence.
+
+    Parameters
+    ==========
+    REs : str or list of str
+        The name, or list of names, of the enzymes to be tested.
+
+    test_seq : str
+        The DNA sequence to be tested.
+
+    Returns
+    =======
+    list
+        A list of names of those enzymes for which sites were found in
+        test_seq, or an empty list of none of the enzyme sites was found.
+    '''
     if type(REs) != list:
         REs = [REs]
 
@@ -237,20 +324,38 @@ def test_RE(REs, test_seq):
 #================================================================================
 
 def translate(seq):
+    '''
+    Returns an amino acid sequenc etranslated for na input DNA sequence.
 
-    codedict = {'AAA':'K','AAC':'N','AAG':'K','AAT':'N','ACA':'T','ACC':'T','ACG':'T','ACT':'T','AGA':'R','AGC':'S','AGG':'R','AGT':'S',
-               'ATA':'I','ATC':'I','ATG':'M','ATT':'I','CAA':'Q','CAC':'H','CAG':'Q','CAT':'H','CCA':'P','CCC':'P','CCG':'P','CCT':'P',
-               'CGA':'R','CGC':'R','CGG':'R','CGT':'R','CTA':'L','CTC':'L','CTG':'L','CTT':'L','GAA':'E','GAC':'D','GAG':'E','GAT':'D',
-               'GCA':'A','GCC':'A','GCG':'A','GCT':'A','GGA':'G','GGC':'G','GGG':'G','GGT':'G','GTA':'V','GTC':'V','GTG':'V','GTT':'V',
-               'TAA':'*','TAC':'Y','TAG':'*','TAT':'Y','TCA':'S','TCC':'S','TCG':'S','TCT':'S','TGA':'*','TGC':'C','TGG':'W','TGT':'C',
-               'TTA':'L','TTC':'F','TTG':'L','TTT':'F'}
+    Parameters
+    ==========
+    seq : str
+        The DNA sequence to be translated.
+
+    Returns
+    str
+        The amino acid sequence translated from seq.
+    '''
+
+    codedict = {'AAA':'K','AAC':'N','AAG':'K','AAT':'N','ACA':'T','ACC':'T',
+                'ACG':'T','ACT':'T','AGA':'R','AGC':'S','AGG':'R','AGT':'S',
+                'ATA':'I','ATC':'I','ATG':'M','ATT':'I','CAA':'Q','CAC':'H',
+                'CAG':'Q','CAT':'H','CCA':'P','CCC':'P','CCG':'P','CCT':'P',
+                'CGA':'R','CGC':'R','CGG':'R','CGT':'R','CTA':'L','CTC':'L',
+                'CTG':'L','CTT':'L','GAA':'E','GAC':'D','GAG':'E','GAT':'D',
+                'GCA':'A','GCC':'A','GCG':'A','GCT':'A','GGA':'G','GGC':'G',
+                'GGG':'G','GGT':'G','GTA':'V','GTC':'V','GTG':'V','GTT':'V',
+                'TAA':'*','TAC':'Y','TAG':'*','TAT':'Y','TCA':'S','TCC':'S',
+                'TCG':'S','TCT':'S','TGA':'*','TGC':'C','TGG':'W','TGT':'C',
+                'TTA':'L','TTC':'F','TTG':'L','TTT':'F'}
 
     if type(seq) == str and all([n in ['A','C','T','G'] for n in seq.upper()]):
         seq = [seq[i:i+3] for i in range(0,len(seq),3) if len(seq[i:i+3]) == 3]
     elif type(seq) == list and all([len(c) == 3 for c in seq]):
         pass
     else:
-        raise ValueError('This sequence is not recognised as a valid DNA or codon sequence.')
+        raise ValueError('This sequence is not recognised as a valid DNA or' +
+                          ' codon sequence.')
 
     return ''.join([codedict[c] for c in seq])
 
@@ -304,3 +409,33 @@ def time_seq(input_seq,ref_table='Scer'):
     results['Average decoding time per codon'] = results['Decoding time'] / len(codon_seq)
     results['CV'] = np.std(times_vec, ddof=1) / np.mean(times_vec) * 100
     return results
+
+#================================================================================
+
+def report_repeats(seq, threshold=4):
+    '''
+    Reports the repeat length for any single amino acid repeat longer than the threshold value.
+
+    Parameters
+    ==========
+    seq : str
+        The amino acid sequence to be analysed
+    threshold : int
+        The minimum number of consecutive amino acids reported as a repeat. Default = 4.
+
+    Returns
+    =======
+    dict
+        A dictionary of amino acids for which repeats were found and the longest repeat length.
+        Returns an empty dictionary if no repeats were found.
+    '''
+
+    ret_dict = {}
+    for aa in seq:
+        l = threshold
+        while aa * l in seq:
+            ret_dict[aa] = (l,'@')
+            l += 1
+    for key,value in ret_dict.items():
+        ret_dict[key] = (value[0],value[1] + str(seq.index(key*value[0]) + 1))
+    return ret_dict

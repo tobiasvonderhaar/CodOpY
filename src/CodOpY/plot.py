@@ -18,8 +18,7 @@ def count_aas(seq):
 def plot_opt(seq, ref_table = 'Scer', plot_par = 'decoding.time',window=25,plot_colors = ['gold','cornflowerblue','mediumpurple']):
     import pandas as pd
     import matplotlib.pyplot as plt
-    from CodOpY.optimise import opt_seq
-    from CodOpY.misc import translate
+    from CodOpY.optimise import opt_seq, translate
 
     #convert sequence to DNA
     seq = seq.upper()
@@ -37,7 +36,7 @@ def plot_opt(seq, ref_table = 'Scer', plot_par = 'decoding.time',window=25,plot_
         parameterset = pd.read_csv(read_file)
     print('Parameterset acquired.')
     print(parameterset.columns)
-            
+
     #generate a lookup dictionary for the plotted parameter
     pardict = {}
     for c in parameterset['codon']:

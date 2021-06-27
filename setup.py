@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 print(find_packages())
 setup(
     name = 'CodOpY',
-    version = '0.0.1.t',
+    version = '0.1.1',
     author = 'Tobias von der Haar',
     author_email = 'T.von-der-Haar@kent.ac.uk',
     url="https://github.com/tobiasvonderhaar/CodOpY",
@@ -25,8 +25,9 @@ setup(
     py_modules = ['CodOpY.optimise','CodOpY.misc','CodOpY.plot'],
     zip_safe=False,
     package_dir = {'' : 'src'},
-    packages=['CodOpY'],
+    packages=find_packages(include=['CodOpY','CodOpY.*']),
     include_package_data=True,
     package_data={'':['src/CodOpY/Data/*.csv']},
     python_requires = ">=3.6",
+    install_requires(['pandas','numpy','matplotlib'])
 )
