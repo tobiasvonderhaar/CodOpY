@@ -1,3 +1,10 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import random
+import requests
+from CodOpY.misc import initiate_code_table
+
 def retrieve_kazusa(taxID):
     '''Returns a table with codon usage frequencies per 1000 nt from the
     Kazusa website.
@@ -15,10 +22,6 @@ def retrieve_kazusa(taxID):
         relative usage frequency per 1000 codons for each of the 64 possible
         RNA codons.
     '''
-
-    from CodOpY.misc import initiate_code_table
-    import requests
-    import pandas as pd
 
     if type(taxID) == str:
         if not taxID.isdecimal():
@@ -107,9 +110,6 @@ def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],
         Returns a DNA sequence string.
     '''
 
-    import pandas as pd
-    import random
-
     #prepare package data for use
     try:
         import importlib.resources as pkg_resources
@@ -178,8 +178,6 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
     str
         A DNA sequence string.
     '''
-
-    import pandas as pd
 
     #prepare package data for use
     try:
@@ -378,9 +376,6 @@ def time_seq(input_seq,ref_table='Scer'):
         the Average decoding time per codon in seconds, and the CV
         (coefficient of variation of the decoding time per codon)
     '''
-
-    import numpy as np
-    import pandas as pd
 
     #convert the input sequence to DNA if RNA
     input_seq = input_seq.replace('U','T')
