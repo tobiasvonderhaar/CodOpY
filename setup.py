@@ -29,5 +29,5 @@ setup(
     include_package_data=True,
     package_data={'':['src/CodOpY/Data/*.csv']},
     python_requires = ">=3.6",
-    install_requires(['pandas','numpy','matplotlib'])
+    install_requires=['pandas','numpy','matplotlib']
 )
