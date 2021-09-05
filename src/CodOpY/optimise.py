@@ -117,6 +117,7 @@ def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],
         # Try backported to PY<37 `importlib_resources`.
         import importlib_resources as pkg_resources
     from . import Data  # relative-import the *package* containing the data
+
     #import the stored data for the dataset in question
     try:
         with open(Data.__path__[0] + '/' + ref_table + '.csv') as read_file:
@@ -434,3 +435,46 @@ def report_repeats(seq, threshold=4):
     for key,value in ret_dict.items():
         ret_dict[key] = (value[0],value[1] + str(seq.index(key*value[0]) + 1))
     return ret_dict
+
+#================================================================================
+
+def codon_choices(aa,parset='Scer',parameter='decoding.time'):
+    '''
+    Reports the codon choices for a specified amino acid.
+    
+    Parameters:
+    ===========
+    aa : str
+        An amino acid in one or three letter code.
+    parset : str
+        A valid name for a parameterset such as 'Scer'.
+    parameter : str
+        The name of the parameter to be displayed alongside the codons, which must 
+        correspond to one of the columns of the specified parset.
+        
+    Returns:
+    ========
+        pandas.core.frame.DataFrame
+    '''
+    try:
+        import importlib.resources as pkg_resources
+    except ImportError:
+        # Try backported to PY<37 `importlib_resources`.
+        import importlib_resources as pkg_resources
+    from . import Data  # relative-import the *package* containing the data
+    #import the stored data for S cerevisiae
+    with open(Data.__path__[0] + '\\' +  parset + '.csv') as read_file:
+        ref_table = pd.read_csv(read_file)
+    if len(aa) == 1:
+        aa = aa.upper()
+        if aa not in ref_table['one.letter'].values:
+            raise ValueError('Invalid amino acid choice.')
+        select_table = ref_table.loc[ref_table['one.letter'] == aa]
+    elif len(aa) == 3:
+        aa = aa[0].upper() + aa[1:].lower()
+        if aa not in ref_table['three.letter'].values:
+            raise ValueError('Invalid amino acid choice.')
+        select_table = ref_table.loc[ref_table['three.letter'] == aa]
+    else:
+        raise ValueError('Invalid amino acid choice.')
+    return select_table[['codon','three.letter','one.letter',parameter]].sort_values(by=parameter).reset_index(drop=True)
