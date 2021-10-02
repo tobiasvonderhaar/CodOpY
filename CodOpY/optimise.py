@@ -290,14 +290,14 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
     return new_seq
 #================================================================================
 
-def test_RE(REs, test_seq):
+def test_RE(RE, test_seq):
     '''
-    Tests whether REs are present in a sequence.
+    Tests whether an RE site is present in a sequence.
 
     Parameters
     ==========
-    REs : str or list of str
-        The name, or list of names, of the enzymes to be tested.
+    REs : str
+        The name of the enzyme, or the sequence, to be tested.
 
     test_seq : str
         The DNA sequence to be tested.
@@ -308,17 +308,81 @@ def test_RE(REs, test_seq):
         A list of names of those enzymes for which sites were found in
         test_seq, or an empty list of none of the enzyme sites was found.
     '''
-    if type(REs) != list:
-        REs = [REs]
 
-    found_REs = []
-    for RE in REs:
-        test = remove_RE(RE, test_seq, suppress_not_found=True)
-        if type(test) != str:
-            pass
-        else:
-            found_REs.append(RE)
-    return found_REs
+    #prepare package data for use
+    try:
+        import importlib.resources as pkg_resources
+    except ImportError:
+        # Try backported to PY<37 `importlib_resources`.
+        import importlib_resources as pkg_resources
+    from . import Data  # relative-import the *package* containing the data
+    #import the restriction enzyme data
+    with open(Data.__path__[0] + '/RE_List.csv') as read_file:
+        RE_ref = pd.read_csv(read_file)
+    #convert RE names to upper case for comparison to 'RE' variable
+    RE_ref.Name = RE_ref.Name.str.upper()
+
+    #is site a restriction enzyme name?
+    RE = RE.upper()
+    if RE in RE_ref.Name.values:
+        RE_seq = RE_ref.loc[RE_ref['Name'] == RE]['Motif'].values[0]
+    #else is site a valid DNA sequence?
+    elif not 0 in [c in ['A','C','T','G','W','S','M','K','R','Y','N'] for c in RE]:
+        RE_seq = RE
+    else:
+        print('No known Restriction enzyme site or valid DNA sequence specified.')
+        return
+    #remove leading or trailing Ns from RE site
+    while RE_seq[0] == 'N':
+        RE_seq = RE_site[1:]
+    while RE_seq[-1] == 'N':
+        RE_seq = RE_site[:-1]
+    #does RE_site now have more than 5 'N' (this becomes very inefficient)
+    if RE_seq.count('N') > 5:
+        print('Too many N - the maximum number of N allowed in the RE sequence is 5')
+        return
+
+    #does the RE site contain ambiguous nucleotide symbols?
+    #If so list all corresponding unambiguous sequences
+    ambiguous_bases = {'W':['A','T'],'S':['G','C'],'M':['A','C'],'K':['G','T'],'R':['A','G'],'Y':['C','T'],
+                       'B':['C','G','T'],'D':['A','G','T'],'H':['A','C','T'],'V':['A','C','G'],'N':['A','C','G','T']}
+    unamb_RE_seqs = [RE_seq]
+    while 0 in [c in ['A','C','T','G'] for c in unamb_RE_seqs[0]]:
+        new_options = []
+        for seq in unamb_RE_seqs:
+            for idx, nt in enumerate(seq):
+                if nt in ambiguous_bases.keys():
+                    for nt in ambiguous_bases[nt]:
+                        new_options.append(seq[:idx] + nt + seq[idx+1:])
+                    break
+        unamb_RE_seqs = new_options
+
+
+    #convert sequence to valid uppercase DNA sequence
+    test_seq = test_seq.upper().replace('U','T')
+
+    #is site in seq?
+    if not 1 in [R in test_seq for R in unamb_RE_seqs]:
+        print(RE + ' not found in this sequence. \n')
+        return
+    #if yes go through the sequence and record all sites of occurrence
+    else:
+        found_sites = []
+        sub_seq = test_seq
+        while 1 in [R in sub_seq for R in unamb_RE_seqs]:
+            for R in unamb_RE_seqs:
+                if R in sub_seq:
+                    if len(found_sites) >= 1:
+                        index_shift = found_sites[-1]
+                    else:
+                        index_shift = 0
+                    found_sites.append(sub_seq.find(R)+ index_shift)
+                    sub_seq = sub_seq[found_sites[-1]+1:]
+        print(RE + ' found at the following site(s): ' + str(found_sites).replace('[','').replace(']','') + '\n')
+        return
+
+
+
 
 #================================================================================
 
@@ -441,7 +505,7 @@ def report_repeats(seq, threshold=4):
 def codon_choices(aa,parset='Scer',parameter='decoding.time'):
     '''
     Reports the codon choices for a specified amino acid.
-    
+
     Parameters:
     ===========
     aa : str
@@ -449,9 +513,9 @@ def codon_choices(aa,parset='Scer',parameter='decoding.time'):
     parset : str
         A valid name for a parameterset such as 'Scer'.
     parameter : str
-        The name of the parameter to be displayed alongside the codons, which must 
+        The name of the parameter to be displayed alongside the codons, which must
         correspond to one of the columns of the specified parset.
-        
+
     Returns:
     ========
         pandas.core.frame.DataFrame

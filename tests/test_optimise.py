@@ -11,8 +11,6 @@ def test_opt_seq():
     AA = 'ACDEFGHIKLMNPQRSTVWY'
     #assert that this produces the correct optimised sequence for yeast
     assert opt_seq(AA,diversify=[]) == 'GCGTGCGACGAATTTGGTCATATTAAATTGATGAACCCGCAAAGATCCACTGTCTGGTAC'
-    #assert that this produces the correct optiise sequence for HEK293 cells
-    assert opt_seq(AA,diversify=[],ref_table='HEK') == 'GCTTGCGACGAATTCGGACACATTAAACTTATGAACCCTCAAAGATCTACTGTTTGGTAC'
     #assert the when used for yeast with the default diversify parameters this never includes slow codons
     for rep in range(25):
         assert 'GGG' not in opt_seq(AA)
@@ -29,10 +27,9 @@ def test_time_seq():
     seq = 'GCGTGCGACGAATTTGGTCATATTAAATTGATGAACCCGCAAAGATCCACTGTCTGGTAC'
     #assert that time_seq returns the correct dictionary for this sequence for yeast
     assert time_seq(seq) == {'Decoding time': 2.2536, 'Average decoding time per codon': 0.11268, 'CV': 46.068781688038705}
-    assert time_seq(seq,ref_table='HEK') == {'Decoding time': 23.310745777, 'Average decoding time per codon': 1.16553728885, 'CV': 33.04953199594406}
 
 def test_retrieve_kazusa():
-    #assert that the first value returned for the Kazua data for yeast is correct
+    #assert that the first value returned for the Kazusa data for yeast is correct
     assert retrieve_kazusa(4932)['usage.frequency'][0] == 41.9
 
 def test_report_repeats():

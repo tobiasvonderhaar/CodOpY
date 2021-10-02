@@ -9,6 +9,9 @@ dist
 .ipynb_checkpoints
 Untitled.ipynb
 
+#pytest files
+.pytest_cache/
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
