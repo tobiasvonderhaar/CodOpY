@@ -1,4 +1,4 @@
-from CodOpY.optimise import (translate, opt_seq, remove_RE,time_seq,retrieve_kazusa,report_repeats)
+from CodOpY.optimise import (translate, opt_seq, remove_RE,time_seq,retrieve_kazusa,report_repeats,codon_choices)
 
 def test_translate():
     #define a DNA sequence containng all 64 codons
@@ -37,3 +37,13 @@ def test_report_repeats():
     seq = 'MKRSAAAAATGCELLLLLLLLLLRRSTNNNQQQQ'
     #assert that the number of repeats reported for this sequence is correct
     assert report_repeats(seq) == {'A': (5, '@5'), 'L': (10, '@14'), 'Q': (4, '@31')}
+
+def test_codon_choices():
+    #tests are run with the default organism 'Scer'
+    #assert that the function returns a pandas dataframe
+    assert str(type(codon_choices("R"))) == "<class 'pandas.core.frame.DataFrame'>"
+    #assert that the dataframe for test aino acids has the correct shape
+    assert codon_choices("R").shape == (6,4)
+    assert codon_choices("Met").shape == (1,4)
+    codon_choices("Ile").shape == (3,4)
+	
