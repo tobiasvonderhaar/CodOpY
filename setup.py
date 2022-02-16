@@ -4,7 +4,7 @@ setup(
     author = "Tobias von der Haar",
     description = "A Python package for gene optimisation",
     name = "CodOpY",
-    version = "0.1.2.4",
+    version = "0.2.0",
     packages = find_packages(include = ["CodOpY","CodOpY.*"]),
     include_package_data = True,
     install_requires = ['pandas','numpy','matplotlib'],

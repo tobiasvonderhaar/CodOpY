@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import requests
-from CodOpY.misc import initiate_code_table
+from CodOpY.misc import initiate_code_table, load_from_Data
 
 def retrieve_kazusa(taxID):
     '''Returns a table with codon usage frequencies per 1000 nt from the
@@ -76,7 +76,7 @@ def retrieve_kazusa(taxID):
 
 #==================================================================================================
 
-def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],
+def opt_seq(seq,diversify=[],
             diversify_range=0.2,ref_table = 'Scer',
             optimise_by=['decoding.time',min]):
 
@@ -109,21 +109,8 @@ def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],
     str
         Returns a DNA sequence string.
     '''
-
-    #prepare package data for use
-    try:
-        import importlib.resources as pkg_resources
-    except ImportError:
-        # Try backported to PY<37 `importlib_resources`.
-        import importlib_resources as pkg_resources
-    from . import Data  # relative-import the *package* containing the data
-
-    #import the stored data for the dataset in question
-    try:
-        with open(Data.__path__[0] + '/' + ref_table + '.csv') as read_file:
-            parameterset = pd.read_csv(read_file)
-    except:
-        raise ValueError('ref_table does not refer to a valid dataset.')
+    
+    parameterset = load_from_Data(ref_table)
 
     #define the reverse translation dictionary: which codons should be considered for which amino acid?
     #if an amino acid is not in the diversify list, use the fastest codon
@@ -152,7 +139,7 @@ def opt_seq(seq,diversify=['K','N','I','H','V','G','D','Y','C','F'],
 
 #==================================================================================================
 
-def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',min],suppress_not_found=False):
+def remove_RE(site, test_seq, ref_table='Scer',optimise_by=['decoding.time',min],suppress_not_found=False):
 
     '''Removes restriction enzyme sites from DNA sequences without altering the encoded
     amino acid sequence and while maintaining codon optimisation as much as possible.
@@ -179,22 +166,13 @@ def remove_RE(site, test_seq, ref_table = 'Scer',optimise_by=['decoding.time',mi
     str
         A DNA sequence string.
     '''
-
-    #prepare package data for use
-    try:
-        import importlib.resources as pkg_resources
-    except ImportError:
-        # Try backported to PY<37 `importlib_resources`.
-        import importlib_resources as pkg_resources
-    from . import Data  # relative-import the *package* containing the data
-    #import the stored data for S cerevisiae
-    with open(Data.__path__[0] + '/RE_List.csv') as read_file:
-        RE_ref = pd.read_csv(read_file)
+    
+    #load auxiliary package data
+    RE_ref = load_from_Data('RE_List')
+    codons = load_from_Data(ref_table)
+    
+    #convert RE names to upper case for comparison to 'RE' variable
     RE_ref.Name = RE_ref.Name.str.upper()
-    with open(Data.__path__[0] + '/' + ref_table + '.csv') as read_file:
-        codons = pd.read_csv(read_file)
-
-     #Scer = pd.read_csv('src/CodOpY/Data/' + ref_table + '.csv')
 
     #is site a restrictions enzyme name?
     site = site.upper()
@@ -309,16 +287,8 @@ def test_RE(RE, test_seq):
         test_seq, or an empty list of none of the enzyme sites was found.
     '''
 
-    #prepare package data for use
-    try:
-        import importlib.resources as pkg_resources
-    except ImportError:
-        # Try backported to PY<37 `importlib_resources`.
-        import importlib_resources as pkg_resources
-    from . import Data  # relative-import the *package* containing the data
-    #import the restriction enzyme data
-    with open(Data.__path__[0] + '/RE_List.csv') as read_file:
-        RE_ref = pd.read_csv(read_file)
+    RE_ref = load_from_Data('RE_List')
+    
     #convert RE names to upper case for comparison to 'RE' variable
     RE_ref.Name = RE_ref.Name.str.upper()
 
@@ -388,7 +358,8 @@ def test_RE(RE, test_seq):
 
 def translate(seq):
     '''
-    Returns an amino acid sequenc etranslated for na input DNA sequence.
+    Returns an amino acid sequence translated for na input DNA 
+    sequence.
 
     Parameters
     ==========
@@ -446,15 +417,7 @@ def time_seq(input_seq,ref_table='Scer'):
     input_seq = input_seq.replace('U','T')
     #make a look-up dictionary of the decoding times available for an amino acid
     #from the reference table
-    try:
-        import importlib.resources as pkg_resources
-    except ImportError:
-        # Try backported to PY<37 `importlib_resources`.
-        import importlib_resources as pkg_resources
-    from . import Data  # relative-import the *package* containing the data
-    #import the stored data for S cerevisiae
-    with open(Data.__path__[0] + '\\' +  ref_table + '.csv') as read_file:
-        ref = pd.read_csv(read_file)
+    ref = load_from_Data(ref_table)
     ref['codon'] = ref['codon'].str.replace('U','T')
     time_dict_by_codon = dict(zip(ref['codon'], ref['decoding.time']))
     #add pseudo data for stop codons
@@ -485,6 +448,7 @@ def report_repeats(seq, threshold=4):
 
     Returns
     =======
+    
     dict
         A dictionary of amino acids for which repeats were found and the longest repeat length.
         Returns an empty dictionary if no repeats were found.
@@ -502,7 +466,7 @@ def report_repeats(seq, threshold=4):
 
 #================================================================================
 
-def codon_choices(aa,parset='Scer',parameter='decoding.time'):
+def codon_choices(aa,ref_table='Scer',parameter='decoding.time'):
     '''
     Reports the codon choices for a specified amino acid.
 
@@ -510,7 +474,7 @@ def codon_choices(aa,parset='Scer',parameter='decoding.time'):
     ===========
     aa : str
         An amino acid in one or three letter code.
-    parset : str
+    ref_table : str
         A valid name for a parameterset such as 'Scer'.
     parameter : str
         The name of the parameter to be displayed alongside the codons, which must
@@ -520,15 +484,7 @@ def codon_choices(aa,parset='Scer',parameter='decoding.time'):
     ========
         pandas.core.frame.DataFrame
     '''
-    try:
-        import importlib.resources as pkg_resources
-    except ImportError:
-        # Try backported to PY<37 `importlib_resources`.
-        import importlib_resources as pkg_resources
-    from . import Data  # relative-import the *package* containing the data
-    #import the stored data for S cerevisiae
-    with open(Data.__path__[0] + '\\' +  parset + '.csv') as read_file:
-        ref_table = pd.read_csv(read_file)
+    ref_table = load_from_Data(ref_table)
     if len(aa) == 1:
         aa = aa.upper()
         if aa not in ref_table['one.letter'].values:

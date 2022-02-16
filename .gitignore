@@ -1,3 +1,7 @@
+#the Sandpit and anythign in it
+Sandpit
+Sandpit/*
+
 #sdist build files
 __pycache__/
 *.egg-info

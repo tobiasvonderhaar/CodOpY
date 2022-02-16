@@ -1,7 +1,11 @@
+import matplotlib.pyplot as plt
+import pandas as pd
+import matplotlib.pyplot as plt
+from CodOpY.optimise import opt_seq, translate
+from CodOpY.misc import load_from_Data
+
 def count_aas(seq):
     '''Produces a bar graph of amino acid counts in a protein sequence'''
-
-    import matplotlib.pyplot as plt
 
     aas = ['A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y']
     counts = []
@@ -16,26 +20,12 @@ def count_aas(seq):
 #==================================================================================================
 
 def plot_opt(seq, ref_table = 'Scer', plot_par = 'decoding.time',window=25,plot_colors = ['gold','cornflowerblue','mediumpurple']):
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    from CodOpY.optimise import opt_seq, translate
 
     #convert sequence to DNA
     seq = seq.upper()
     seq = seq.replace('U','T')
 
-    #prepare package data for use
-    try:
-        import importlib.resources as pkg_resources
-    except ImportError:
-        # Try backported to PY<37 `importlib_resources`.
-        import importlib_resources as pkg_resources
-    from . import Data  # relative-import the *package* containing the data
-    #import the stored data for the dataset in question
-    with open(Data.__path__[0] + '/' + ref_table + '.csv') as read_file:
-        parameterset = pd.read_csv(read_file)
-    print('Parameterset acquired.')
-    print(parameterset.columns)
+    parameterset = load_from_Data(ref_table)
 
     #generate a lookup dictionary for the plotted parameter
     pardict = {}
