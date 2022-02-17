@@ -78,10 +78,12 @@ def retrieve_kazusa(taxID):
 
 def opt_seq(seq,diversify=[],
             diversify_range=0.2,ref_table = 'Scer',
+            enforce={},
             optimise_by=['decoding.time',min]):
 
     '''
-    Makes an optimised DNA sequence corresponding to an input amino acid sequence.
+    Makes an optimised DNA sequence corresponding to an input amino
+    acid sequence.
 
     Parameters
     ==========
@@ -89,20 +91,27 @@ def opt_seq(seq,diversify=[],
         The amino aid sequence to be otimised
 
     diversify : list of str
-        A list specifying individual amino acids for which codons should be
-        diversified.
+        A list specifying individual amino acids for which codons
+        should be diversified.
 
     diversify_range : float
-        The proportion over which the optimisation parameters that is allowed to
-        vary for diversified amno acids, relative to 1.
+        The proportion over which the optimisation parameters that is
+        allowed to vary for diversified amno acids, relative to 1.
 
     ref_table : str
         the name of the data file containing the codon data.
+        
+    enforce : dict
+        A dictionary for manually specifying codons for certain amino 
+        acids (for these the optimisation parameters are overridden).
+        Example: enforce = {'K':'AAG'} will always use AAG to encode 
+        lysine (K).
 
     optimise_by : list of str and function
-        The str part of optimise_by specifies which cloumn of the ref_tble shold be
-        used for optimisation. Function can be min or max and specifies whether the
-        highestt or lowest value should be selected for optimisation.
+        The str part of optimise_by specifies which cloumn of the 
+        ref_table shold be used for optimisation. Function can be min
+        or max and specifies whether the highest or lowest value should
+        be selected for optimisation.
 
     Returns
     =======
@@ -112,9 +121,12 @@ def opt_seq(seq,diversify=[],
     
     parameterset = load_from_Data(ref_table)
 
-    #define the reverse translation dictionary: which codons should be considered for which amino acid?
+    #define the reverse translation dictionary: 
+    #which codons should be considered for which amino acid?
     #if an amino acid is not in the diversify list, use the fastest codon
-    #if an amino acid is in the diversify list, diversify codon choice by random draw from all codons for which the diversify_range threshold applies
+    #if an amino acid is in the diversify list, diversify codon choice by 
+    #random draw from all codons for which the diversify_range threshold 
+    #applies
     reverse_dict = {}
     for aa in parameterset['one.letter'].unique():
         codons_for_aa = parameterset.loc[parameterset['one.letter']==aa]
@@ -126,11 +138,21 @@ def opt_seq(seq,diversify=[],
                 diversify_threshold = max(codons_for_aa[optimise_by[0]]) * (1 - diversify_range)
                 acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']>diversify_threshold]['codon'])
             else:
-                return
+                raise ValueError("Invalid amino acid specified in diversify")
         else:
             best_decoding_time_for_aa = optimise_by[1](codons_for_aa['decoding.time'])
             acceptable_codons_for_aa = list(codons_for_aa.loc[codons_for_aa['decoding.time']==best_decoding_time_for_aa]['codon'])
         reverse_dict[aa] = acceptable_codons_for_aa
+    #have codons been specified using the 'enforce' parameter?
+    if len(enforce) > 0:
+           for key, value in enforce.items():
+                codon_set = list(parameterset.loc[parameterset['one.letter'] == key]['codon'].values)
+                if value not in codon_set:
+                    print('Non-standard genetic code enforced!')
+                print('Codon for ' + key + ' enforced as ' + value)
+                if type(value) != list:
+                    value = [value]
+                reverse_dict[key] = value
     codon_seq = []
     for seq_aa in seq:
         codon_seq.append(random.choice(reverse_dict[seq_aa]))

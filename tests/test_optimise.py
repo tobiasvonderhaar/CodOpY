@@ -11,10 +11,12 @@ def test_opt_seq():
     AA = 'ACDEFGHIKLMNPQRSTVWY'
     #assert that this produces the correct optimised sequence for yeast
     assert opt_seq(AA,diversify=[]) == 'GCGTGCGACGAATTTGGTCATATTAAATTGATGAACCCGCAAAGATCCACTGTCTGGTAC'
-    #assert the when used for yeast with the default diversify parameters this never includes slow codons
-    for rep in range(25):
+    #assert that when used for yeast with the default diversify parameters this never includes slow codons
+    for rep in range(25): 
         assert 'GGG' not in opt_seq(AA)
         assert 'GGA' not in opt_seq(AA)
+    #test the enforce option
+    assert opt_seq('MKKKGTACK',enforce={'K':'AAC'}) == 'ATGAACAACAACGGTACTGCGTGCAAC'
 
 def test_remove_RE():
    #define test sequence
