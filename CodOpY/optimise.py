@@ -5,74 +5,28 @@ import random
 import requests
 from CodOpY.misc import initiate_code_table, load_from_Data
 
-def retrieve_kazusa(taxID):
-    '''Returns a table with codon usage frequencies per 1000 nt from the
-    Kazusa website.
-
-    Parameters
-    ==========
-    taxID : int or str
-        taxID can be the NCBI Taxonomy ID of an organism or the latin name (or
-        part thereof) of an organism.
-
-    Returns
-    =======
-    pandas.core.frame.DataFrame
-        A dataframe containing codons, amino acid abbreviations and the
-        relative usage frequency per 1000 codons for each of the 64 possible
-        RNA codons.
-    '''
-
-    if type(taxID) == str:
-        if not taxID.isdecimal():
-            search_result = requests.get('http://www.kazusa.or.jp/codon/cgi-bin/spsearch.cgi?species=' + taxID.replace(' ','+') + '&c=i')
-            if '\nNot found\n' in search_result.text:
-                return 'Search term not found'
-            result_lines = search_result.text.split('<A')
-            ids = []
-            print('Available entries include:\n')
-            for line in result_lines[:-1]:
-                if line[1:5] == 'HREF':
-                    idx = line.split('=')[2].split('\"')[0]
-                    species = line.split('<I>')[1].split('</I>')[0]
-                    if idx.isdecimal():
-                        ids.append(idx)
-                        print(species + ': ' + idx)
-            if len(ids) == 1:
-                print('Using unique result')
-                taxID = ids[0]
-            else:
-                query = input('\nPlease select a numerical ID')
-                if query not in ids:
-                    return 'Invalid ID'
-                else:
-                    taxID = query
-
-    base_frame = initiate_code_table()
-    base_frame['codon'] = base_frame['codon'].str.replace('T','U')
-    search_result = requests.get('http://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=' + str(taxID))
-    if 'Not found' in search_result.text:
-                return 'Search term not found'
-    species = search_result.text.split('\n')[7].split('<i>')[1].split(' </i>')[0]
-    print('\nRetrieving data for ' + species)
-    if len(search_result.text.split('PRE')) == 1:
-        print('no codon usage data found for this taxonomy ID')
-        return
-    else:
-        result_table = search_result.text.split('PRE')[1].replace('\n','').replace('>','').replace('</','')
-        result_table = result_table.split(')')
-    #retrieve information from lines
-    codons,frequency = [],[]
-    for line in result_table:
-        #remove leading spaces
-        if len(line)>1:
-            while line[0] == ' ':
-                line=line[1:]
-            codons.append(line[:3])
-            frequency.append(float(line[line.find(' ')+1:line.find('(')]))
-    results_frame = pd.DataFrame({'codon':codons,'usage.frequency':frequency})
-    results_frame = base_frame.merge(results_frame, how = 'outer',on='codon')
-    return results_frame.sort_values(by='codon').reset_index(drop=True)
+class Parset():
+    def __init__(self):
+        self.ref_table = 'Scer'
+        self.objective = 'decoding.time'
+        self.objective_function = min
+        self.diversify = []
+        self.diversify_range = 2
+        self.diversify_amino_acid_repeats = True
+        self.enforce = {}
+        self.exclude_REs = []
+        self.reduce_speed_at = ()
+        self.reduce_speed_by = 0
+        
+    def __repr__(self):
+        return 'This is a Parset instance containing a CodOpY parameterset.'
+    
+    def __str__(self):
+        printable_attributes = [item for item in dir(self) if '__' not in item]
+        print('The parameters in this Parset instance are \n')
+        for attr in printable_attributes:
+            print(attr + ': ' + str(getattr(self,attr)))
+        return ''
 
 #==================================================================================================
 
@@ -288,235 +242,39 @@ def remove_RE(site, test_seq, ref_table='Scer',optimise_by=['decoding.time',min]
         new_seq = new_seq[:subseq_start] + new_subseq + new_seq[subseq_stop:]
 
     return new_seq
-#================================================================================
 
-def test_RE(RE, test_seq):
-    '''
-    Tests whether an RE site is present in a sequence.
+#==================================================================================================
 
-    Parameters
-    ==========
-    REs : str
-        The name of the enzyme, or the sequence, to be tested.
-
-    test_seq : str
-        The DNA sequence to be tested.
-
-    Returns
-    =======
-    list
-        A list of names of those enzymes for which sites were found in
-        test_seq, or an empty list of none of the enzyme sites was found.
-    '''
-
-    RE_ref = load_from_Data('RE_List')
+def slow_down_seq(seq, codon_range = [], by=2, ref_table='Scer'):
     
-    #convert RE names to upper case for comparison to 'RE' variable
-    RE_ref.Name = RE_ref.Name.str.upper()
-
-    #is site a restriction enzyme name?
-    RE = RE.upper()
-    if RE in RE_ref.Name.values:
-        RE_seq = RE_ref.loc[RE_ref['Name'] == RE]['Motif'].values[0]
-    #else is site a valid DNA sequence?
-    elif not 0 in [c in ['A','C','T','G','W','S','M','K','R','Y','N'] for c in RE]:
-        RE_seq = RE
-    else:
-        print('No known Restriction enzyme site or valid DNA sequence specified.')
-        return
-    #remove leading or trailing Ns from RE site
-    while RE_seq[0] == 'N':
-        RE_seq = RE_site[1:]
-    while RE_seq[-1] == 'N':
-        RE_seq = RE_site[:-1]
-    #does RE_site now have more than 5 'N' (this becomes very inefficient)
-    if RE_seq.count('N') > 5:
-        print('Too many N - the maximum number of N allowed in the RE sequence is 5')
-        return
-
-    #does the RE site contain ambiguous nucleotide symbols?
-    #If so list all corresponding unambiguous sequences
-    ambiguous_bases = {'W':['A','T'],'S':['G','C'],'M':['A','C'],'K':['G','T'],'R':['A','G'],'Y':['C','T'],
-                       'B':['C','G','T'],'D':['A','G','T'],'H':['A','C','T'],'V':['A','C','G'],'N':['A','C','G','T']}
-    unamb_RE_seqs = [RE_seq]
-    while 0 in [c in ['A','C','T','G'] for c in unamb_RE_seqs[0]]:
-        new_options = []
-        for seq in unamb_RE_seqs:
-            for idx, nt in enumerate(seq):
-                if nt in ambiguous_bases.keys():
-                    for nt in ambiguous_bases[nt]:
-                        new_options.append(seq[:idx] + nt + seq[idx+1:])
-                    break
-        unamb_RE_seqs = new_options
-
-
-    #convert sequence to valid uppercase DNA sequence
-    test_seq = test_seq.upper().replace('U','T')
-
-    #is site in seq?
-    if not 1 in [R in test_seq for R in unamb_RE_seqs]:
-        print(RE + ' not found in this sequence. \n')
-        return
-    #if yes go through the sequence and record all sites of occurrence
-    else:
-        found_sites = []
-        sub_seq = test_seq
-        while 1 in [R in sub_seq for R in unamb_RE_seqs]:
-            for R in unamb_RE_seqs:
-                if R in sub_seq:
-                    if len(found_sites) >= 1:
-                        index_shift = found_sites[-1]
-                    else:
-                        index_shift = 0
-                    found_sites.append(sub_seq.find(R)+ index_shift)
-                    sub_seq = sub_seq[found_sites[-1]+1:]
-        print(RE + ' found at the following site(s): ' + str(found_sites).replace('[','').replace(']','') + '\n')
-        return
-
-
-
-
-#================================================================================
-
-def translate(seq):
-    '''
-    Returns an amino acid sequence translated for na input DNA 
-    sequence.
-
-    Parameters
-    ==========
-    seq : str
-        The DNA sequence to be translated.
-
-    Returns
-    str
-        The amino acid sequence translated from seq.
-    '''
-
-    codedict = {'AAA':'K','AAC':'N','AAG':'K','AAT':'N','ACA':'T','ACC':'T',
-                'ACG':'T','ACT':'T','AGA':'R','AGC':'S','AGG':'R','AGT':'S',
-                'ATA':'I','ATC':'I','ATG':'M','ATT':'I','CAA':'Q','CAC':'H',
-                'CAG':'Q','CAT':'H','CCA':'P','CCC':'P','CCG':'P','CCT':'P',
-                'CGA':'R','CGC':'R','CGG':'R','CGT':'R','CTA':'L','CTC':'L',
-                'CTG':'L','CTT':'L','GAA':'E','GAC':'D','GAG':'E','GAT':'D',
-                'GCA':'A','GCC':'A','GCG':'A','GCT':'A','GGA':'G','GGC':'G',
-                'GGG':'G','GGT':'G','GTA':'V','GTC':'V','GTG':'V','GTT':'V',
-                'TAA':'*','TAC':'Y','TAG':'*','TAT':'Y','TCA':'S','TCC':'S',
-                'TCG':'S','TCT':'S','TGA':'*','TGC':'C','TGG':'W','TGT':'C',
-                'TTA':'L','TTC':'F','TTG':'L','TTT':'F'}
-
-    if type(seq) == str and all([n in ['A','C','T','G'] for n in seq.upper()]):
-        seq = [seq[i:i+3] for i in range(0,len(seq),3) if len(seq[i:i+3]) == 3]
-    elif type(seq) == list and all([len(c) == 3 for c in seq]):
-        pass
-    else:
-        raise ValueError('This sequence is not recognised as a valid DNA or' +
-                          ' codon sequence.')
-
-    return ''.join([codedict[c] for c in seq])
-
-#================================================================================
-
-def time_seq(input_seq,ref_table='Scer'):
-    '''time_seq calculates the time it takes to decode a DNA or RNA sequence.
-
-    Parameters
-    ----------
-    input_seq : str
-        The DNA or RNA sequence for which the tiem properties are beiing returned.
-    ref_table : str
-        The name of the reference table to be used, eg 'Scer' for S. cerevisiae
-
-    Returns
-    -------
-    dict
-        A dictionary containing the overall Decoding time in seconds,
-        the Average decoding time per codon in seconds, and the CV
-        (coefficient of variation of the decoding time per codon)
-    '''
-
-    #convert the input sequence to DNA if RNA
-    input_seq = input_seq.replace('U','T')
-    #make a look-up dictionary of the decoding times available for an amino acid
-    #from the reference table
+    from CodOpY.analyse import time_seq,translate
+    from CodOpY.misc import codon_choices
+    
+    #load auxiliary package data
     ref = load_from_Data(ref_table)
-    ref['codon'] = ref['codon'].str.replace('U','T')
     time_dict_by_codon = dict(zip(ref['codon'], ref['decoding.time']))
+    
     #add pseudo data for stop codons
     time_dict_by_codon['TGA'] = 0
     time_dict_by_codon['TAA'] = 0
     time_dict_by_codon['TAG'] = 0
-    #calculate the decoding time properties of the sequence
-    codon_seq = [input_seq[n:n+3] for n in range(0,len(input_seq),3)]
-    times_vec = [time_dict_by_codon[codon] for codon in codon_seq]
-    results = {}
-    results['Decoding time'] = np.sum(times_vec)
-    results['Average decoding time per codon'] = results['Decoding time'] / len(codon_seq)
-    results['CV'] = np.std(times_vec, ddof=1) / np.mean(times_vec) * 100
-    return results
-
-#================================================================================
-
-def report_repeats(seq, threshold=4):
-    '''
-    Reports the repeat length for any single amino acid repeat longer than the threshold value.
-
-    Parameters
-    ==========
-    seq : str
-        The amino acid sequence to be analysed
-    threshold : int
-        The minimum number of consecutive amino acids reported as a repeat. Default = 4.
-
-    Returns
-    =======
-    
-    dict
-        A dictionary of amino acids for which repeats were found and the longest repeat length.
-        Returns an empty dictionary if no repeats were found.
-    '''
-
-    ret_dict = {}
-    for aa in seq:
-        l = threshold
-        while aa * l in seq:
-            ret_dict[aa] = (l,'@')
-            l += 1
-    for key,value in ret_dict.items():
-        ret_dict[key] = (value[0],value[1] + str(seq.index(key*value[0]) + 1))
-    return ret_dict
-
-#================================================================================
-
-def codon_choices(aa,ref_table='Scer',parameter='decoding.time'):
-    '''
-    Reports the codon choices for a specified amino acid.
-
-    Parameters:
-    ===========
-    aa : str
-        An amino acid in one or three letter code.
-    ref_table : str
-        A valid name for a parameterset such as 'Scer'.
-    parameter : str
-        The name of the parameter to be displayed alongside the codons, which must
-        correspond to one of the columns of the specified parset.
-
-    Returns:
-    ========
-        pandas.core.frame.DataFrame
-    '''
-    ref_table = load_from_Data(ref_table)
-    if len(aa) == 1:
-        aa = aa.upper()
-        if aa not in ref_table['one.letter'].values:
-            raise ValueError('Invalid amino acid choice.')
-        select_table = ref_table.loc[ref_table['one.letter'] == aa]
-    elif len(aa) == 3:
-        aa = aa[0].upper() + aa[1:].lower()
-        if aa not in ref_table['three.letter'].values:
-            raise ValueError('Invalid amino acid choice.')
-        select_table = ref_table.loc[ref_table['three.letter'] == aa]
+    codon_seq = [seq[n:n+3] for n in range(0, len(seq),3)]
+    if len(codon_range) == 2:
+        codon_subseq = codon_seq[codon_range[0]:codon_range[1]+1]
     else:
-        raise ValueError('Invalid amino acid choice.')
-    return select_table[['codon','three.letter','one.letter',parameter]].sort_values(by=parameter).reset_index(drop=True)
+        codon_subseq = codon_seq
+    #determine existing and new target times for subseq
+    is_time = time_seq(''.join(codon_subseq),ref_table=ref_table)['Average decoding time per codon']
+    target_time = is_time * by
+    #assemble a new sequence that is as close as possible to the new target time
+    replace_codon_seq = []
+    for codon in codon_subseq:
+        aa = translate (codon)
+        choice = codon_choices(aa)
+        diffs = [abs(target_time - val) for val in list(choice['decoding.time'])]
+        replace_codon_seq.append(choice.iloc[diffs.index(min(diffs))]['codon'])
+    if len(codon_range) == 2:
+        return_codon_seq = codon_seq[0:codon_range[0]] + replace_codon_seq + codon_seq[codon_range[1]+1:]
+    else:
+        return_codon_seq = replace_codon_seq
+    return ''.join(return_codon_seq).replace('U','T')

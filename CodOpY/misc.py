@@ -120,3 +120,36 @@ def load_from_Data(ref_table):
     return frame
 
 #=================================================================
+
+def codon_choices(aa,ref_table='Scer',parameter='decoding.time'):
+    '''
+    Reports the codon choices for a specified amino acid.
+
+    Parameters:
+    ===========
+    aa : str
+        An amino acid in one or three letter code.
+    ref_table : str
+        A valid name for a parameterset such as 'Scer'.
+    parameter : str
+        The name of the parameter to be displayed alongside the codons, which must
+        correspond to one of the columns of the specified parset.
+
+    Returns:
+    ========
+        pandas.core.frame.DataFrame
+    '''
+    ref_table = load_from_Data(ref_table)
+    if len(aa) == 1:
+        aa = aa.upper()
+        if aa not in ref_table['one.letter'].values:
+            raise ValueError('Invalid amino acid choice.')
+        select_table = ref_table.loc[ref_table['one.letter'] == aa]
+    elif len(aa) == 3:
+        aa = aa[0].upper() + aa[1:].lower()
+        if aa not in ref_table['three.letter'].values:
+            raise ValueError('Invalid amino acid choice.')
+        select_table = ref_table.loc[ref_table['three.letter'] == aa]
+    else:
+        raise ValueError('Invalid amino acid choice.')
+    return select_table[['codon','three.letter','one.letter',parameter]].sort_values(by=parameter).reset_index(drop=True)

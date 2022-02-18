@@ -1,4 +1,4 @@
-from CodOpY.misc import (initiate_code_table, save_fasta)
+from CodOpY.misc import (initiate_code_table, save_fasta, codon_choices)
 
 import pandas
 import os
@@ -24,3 +24,12 @@ def test_save_fasta():
         re_read = f.read()
     os.remove(filename)
     assert re_read == '>test\nATGATGAT\n'
+
+def test_codon_choices():
+    #tests are run with the default organism 'Scer'
+    #assert that the function returns a pandas dataframe
+    assert str(type(codon_choices("R"))) == "<class 'pandas.core.frame.DataFrame'>"
+    #assert that the dataframe for test aino acids has the correct shape
+    assert codon_choices("R").shape == (6,4)
+    assert codon_choices("Met").shape == (1,4)
+    codon_choices("Ile").shape == (3,4)
